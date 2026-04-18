@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hua Le Smart Pet - Chile</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 90%; max-width: 400px; text-align: center; }
+        h1 { color: #2c3e50; font-size: 1.5rem; margin-bottom: 1.5rem; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background-color: #3498db; color: white; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; transition: 0.3s; }
+        button:hover { background-color: #2980b9; }
+        .info-card { text-align: left; background: #e8f4fd; padding: 15px; border-radius: 10px; margin-top: 10px; }
+        .info-item { margin-bottom: 10px; color: #34495e; }
+        .label { font-weight: bold; color: #2980b9; }
+    </style>
+</head>
+<body>
+    <div class="container" id="app">
+        <h1>Cargando...</h1>
+    </div>
+
+    <script>
+        const AIRTABLE_TOKEN = 'PatfBah20mWvrAoZJ.c782a0aa3218f89275116446d45c555561283972b2aa900dee55928ae261348d';
+        const BASE_ID = 'appZJm4Zk9U3yA6Uu';
+        const TABLE_NAME = 'Table 1'; // 如果你改了名字请告诉我
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const tagId = urlParams.get('id');
+
+        async function init() {
+            if (!tagId) {
+                document.getElementById('app').innerHTML = '<h1>Error</h1><p>ID de placa no encontrado.</p >';
+                return;
+            }
+
+            try {
+                const response = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}?filterByFormula={ID}='${tagId}'`, {
+                    headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` }
+                });
+                const data = await response.json();
+
+                if (data.records.length > 0) {
+                    const record = data.records[0];
+                    if (record.fields.PetName) {
+                        showProfile(record.fields);
+                    } else {
+                        showRegisterForm(record.id);
+                    }
+                } else {
+                    document.getElementById('app').innerHTML = '<h1>ID Invalido</h1><p>Esta placa no está registrada en nuestro sistema.</p >';
+                }
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        function showRegisterForm(recordId) {
+            document.getElementById('app').innerHTML = `
+                <h1>Registrar Mascota</h1>
+                <p>ID: ${tagId}</p >
+                <input type="text" id="petName" placeholder="Nombre de la mascota">
+                <input type="tel" id="phone" placeholder="Tu teléfono de contacto">
+                <button onclick="saveData('${recordId}')">Guardar Información</button>
+            `;
+        }
+
+        async function saveData(recordId) {
+            const petName = document.getElementById('petName').value;
+            const phone = document.getElementById('phone').value;
+
+            if (!petName || !phone) {
+                Swal.fire('Error', 'Por favor llena todos los campos', 'error');
+                return;
+            }
+
+            Swal.fire({ title: 'Guardando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            try {
+                await fetch(`https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}/${recordId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        Authorization: `Bearer ${AIRTABLE_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ fields: { PetName: petName, Phone: phone } })
+                });
+                Swal.fire('¡Éxito!', 'Información guardada correctamente', 'success').then(() => location.reload());
+            } catch (error) {
+                Swal.fire('Error', 'No se pudo guardar', 'error');
+            }
+        }
+
+        function showProfile(fields) {
+            document.getElementById('app').innerHTML = `
+                <h1>Hola, soy ${fields.PetName}</h1>
+                <div class="info-card">
+                    <div class="info-item"><span class="label">Mi dueño:</span> Contactar al teléfono abajo</div>
+                    <div class="info-item"><span class="label">Teléfono:</span> ${fields.Phone}</div>
+                </div>
+                <button style="margin-top:20px; background-color:#2ecc71" onclick="window.location.href='tel:${fields.Phone}'">Llamar al dueño</button>
+            `;
+        }
+
+        init();
+    </script>
+</body>
+</html>
